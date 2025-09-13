@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="Cache-Control" content="no-store" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ICASSP 实时大屏</title>
+  <link rel="stylesheet" href="./styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/echarts/dist/echarts.min.js"></script>
+</head>
+<body>
+  <header class="header">
+    <h1>ICASSP 仿真 · 实时指标</h1>
+    <div id="stamp">等待数据...</div>
+  </header>
+
+  <main class="grid">
+    <div id="rainChart" class="chart"></div>
+    <div id="sinrChart" class="chart"></div>
+    <div id="dutyChart" class="chart"></div>
+    <div id="mosChart"  class="chart"></div>
+  </main>
+
+  <script>
+    window.METRICS_URL = './data/metrics.json'; // 数据文件（由 live_feeder 写入）
+    window.REFRESH_MS  = 5000;                  // 每5秒刷新一次
+  </script>
+  <script src="./app.js"></script>
+</body>
+</html>
