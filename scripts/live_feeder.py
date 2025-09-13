@@ -56,12 +56,13 @@ def main():
     ap.add_argument("--repo", required=True, help="<owner>/<repo> 比如 yourname/your-icassp-repo")
     ap.add_argument("--branch", default="gh-pages")
     ap.add_argument("--gh_path", default="data/metrics.json")
-    ap.add_argument("--algo", default="twostage", help="展示哪个算法（需存在于 sim['results']）")
+    ap.add_argument("--algo", default="sw_twostage", help="展示哪个算法（需存在于 sim['results']）")
     ap.add_argument("--refresh", type=float, default=5.0, help="刷新周期（秒）")
     ap.add_argument("--slot_interp", action="store_true", help="在slot间做线性插值")
     ap.add_argument("--token_env", default="METRICS_TOKEN", help="PAT放在这个环境变量里")
     ap.add_argument("--window_sec", type=int, default=600, help="展示最近多少秒的曲线（默认10分钟）")
     args = ap.parse_args()
+    
 
     token = os.environ.get(args.token_env, "")
     if not token:
