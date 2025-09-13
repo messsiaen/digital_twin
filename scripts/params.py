@@ -148,7 +148,5 @@ class SimParams:
     # - "bohc": Budget-Only Hourly Charger (MOS-free)
     # - "random": Random baseline
     # Currently selected algorithms to run
-    selected_algorithms: Tuple[str, ...] = (
-        "sw_twostage"
-    )
+    selected_algorithms: Tuple[str, ...] = ("sw_twostage",)
 

@@ -295,7 +295,7 @@ def run_simulation(P: SimParams,
         s_bar_hour[h] = np.clip(fav, P.tws_min_s, P.tws_max_s)
 
     # ---- Baselines ----
-    baselines = list(P.selected_algorithms)
+    baselines = P.selected_algorithms
     results = {name: {
         "s": np.zeros(n), "br": np.zeros(n, dtype=int),
         "sinr_db": np.zeros(n), "bler": np.zeros(n), "cap_kbps": np.zeros(n),
