@@ -1,6 +1,6 @@
 const elReload = document.getElementById('btnReload');
 const elStart  = document.getElementById('btnStart');
-const elStop   = document.getElementById('btnStop');
+const elPause  = document.getElementById('btnPause');
 const elStamp  = document.getElementById('stamp');
 const elTicker = document.getElementById('ticker');
 
@@ -13,11 +13,14 @@ let rawData = null, S = null, N = 0;
 let playTimer = null, idx = 0;
 let buf = { rain:[], sinr:[], duty:[], mos:[] };
 
-// 用于“底部5条记录”的时间推导
-let baseTs = null;         // 第一条数据的时间戳(ms)
-let stepMsTicker = 15000;  // 每点间隔（优先用 meta.slot_seconds，否则从数据推断）
+// 时间信息（用于底部 ticker）
+let baseTs = null;
+let stepMsTicker = 15000;
 
-const COLORS = ['#8AB4FF', '#7FDBCA', '#F6D06F', '#EE7A7A']; // 高对比色
+// 状态：'idle' | 'playing' | 'paused' | 'finished'
+let status = 'idle';
+
+const COLORS = ['#8AB4FF', '#7FDBCA', '#F6D06F', '#EE7A7A'];
 
 function baseOption(title, xType, yFmt='{value}') {
   return {
@@ -28,7 +31,7 @@ function baseOption(title, xType, yFmt='{value}') {
       type:xType,
       axisLabel:{ color:'#9fb3c8' },
       axisLine:{ lineStyle:{ color:'#9fb3c8' } },
-      splitLine:{ show:false },       // ← 关闭纵向参考线
+      splitLine:{ show:false },    // 关闭纵向参考线
       scale: true
     },
     yAxis: { 
@@ -63,8 +66,8 @@ async function fetchJSON(url) {
 
 function toXY(series, mode) {
   if (!Array.isArray(series)) return [];
-  if (mode === 'time') return series.map(p => [Number(p[0]), Number(p[1])]); // ts, value
-  return series.map((p,i) => [i+1, Number(p[1])]);                            // slotIndex, value
+  if (mode === 'time') return series.map(p => [Number(p[0]), Number(p[1])]);
+  return series.map((p,i) => [i+1, Number(p[1])]);
 }
 
 function fmtTs(ms) {
@@ -73,6 +76,11 @@ function fmtTs(ms) {
   return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
 const f2 = (x)=> (isFinite(x) ? Number(x).toFixed(3) : 'NaN');
+
+function setButtons(){
+  if (status === 'playing') { elStart.disabled = true;  elPause.disabled = false; }
+  else                     { elStart.disabled = false; elPause.disabled = true;  }
+}
 
 async function loadData() {
   const url = window.METRICS_URL || './data/metrics.json';
@@ -87,16 +95,14 @@ async function loadData() {
 
   N = Math.min(rain.length, sinr.length, duty.length, mos.length);
 
-  // 时间信息：优先 meta.slot_seconds；否则从前两个时间戳推断
+  // 时间步长用于底部 ticker
   baseTs = Number(rain?.[0]?.[0] ?? Date.now());
   if (rawData.meta && Number(rawData.meta.slot_seconds)) {
     stepMsTicker = Number(rawData.meta.slot_seconds) * 1000;
   } else if (rain.length >= 2) {
     const diff = Number(rain[1][0]) - Number(rain[0][0]);
     stepMsTicker = (isFinite(diff) && diff > 0) ? diff : 15000;
-  } else {
-    stepMsTicker = 15000;
-  }
+  } else stepMsTicker = 15000;
 
   S = {
     rain_xy: toXY(rain, mode),
@@ -107,15 +113,14 @@ async function loadData() {
 
   idx = 0;
   buf = { rain:[], sinr:[], duty:[], mos:[] };
+  status = 'idle';
   initCharts();
+  setButtons();
 
   elStamp.textContent = `Loaded: ${N} samples · step=${stepMsTicker/1000}s · x-axis=${mode} · algo=${rawData.meta?.algo || ''}`;
-  elStart.disabled = (N === 0);
-  elStop.disabled  = true;
-
-  // 初次载入后强制一次 resize
+  // 初次载入后强制 resize
   setTimeout(() => { rainChart.resize(); sinrChart.resize(); dutyChart.resize(); mosChart.resize(); }, 0);
-  updateTicker(-1); // 清空或显示初始
+  updateTicker(-1);
 }
 
 function paintAll(forceResize=false) {
@@ -127,36 +132,40 @@ function paintAll(forceResize=false) {
 }
 
 function updateTicker(curIndex) {
-  // 显示“当前 + 前 4 个”的时间戳与四个值
   const series = rawData?.series || {};
-  if (!series.rain) { elTicker.textContent = 'No data.'; return; }
+  const rain = Array.isArray(series.rain) ? series.rain : [];
+  const sinr = Array.isArray(series.sinr) ? series.sinr : [];
+  const duty = Array.isArray(series.duty) ? series.duty : [];
+  const mos  = Array.isArray(series.mos ) ? series.mos  : [];
+  if (!rain.length) { elTicker.textContent = 'No data.'; return; }
+
   const last5 = [];
   for (let k = 0; k < 5; k++) {
     const i = curIndex - k;
     if (i < 0) break;
-    const t  = baseTs + i * stepMsTicker;
-    const rv = series.rain[i]?.[1];
-    const sv = series.sinr[i]?.[1];
-    const dv = series.duty[i]?.[1];
-    const mv = series.mos [i]?.[1];
+    const t  = Number(rain[i]?.[0]);  // 原始时间戳
+    const rv = rain[i]?.[1];
+    const sv = sinr[i]?.[1];
+    const dv = duty[i]?.[1];
+    const mv = mos [i]?.[1];
     last5.push(`${fmtTs(t)} | rain=${f2(rv)}, sinr=${f2(sv)} dB, duty=${f2(dv)}, mos=${f2(mv)}`);
   }
-  if (last5.length === 0) {
-    elTicker.textContent = 'Waiting for playback…';
-  } else {
-    elTicker.textContent = last5.reverse().join('   •   '); // 旧→新
-  }
+  elTicker.textContent = last5.length ? last5.reverse().join('   •   ') : 'Waiting for playback…';
 }
 
 function startPlayback() {
   if (!rawData || N === 0) { elStamp.textContent = 'No data to play.'; return; }
-  if (playTimer) clearInterval(playTimer);
 
-  const tick = Math.max(20, Number(window.PLAY_TICK_MS || 500)); // 0.5s 默认
-  idx = 0;
-  buf = { rain:[], sinr:[], duty:[], mos:[] };
-  paintAll(true);
-  updateTicker(-1);
+  // 若处于 finished，则从头重播；若处于 paused，则从当前 idx 继续；若 idle，则从头开始
+  if (status === 'finished' || (status === 'idle' && idx === 0 && buf.rain.length === 0)) {
+    idx = 0;
+    buf = { rain:[], sinr:[], duty:[], mos:[] };
+    paintAll(true);
+    updateTicker(-1);
+  }
+
+  if (playTimer) clearInterval(playTimer);
+  const tick = Math.max(20, Number(window.PLAY_TICK_MS || 500));
 
   let resizeCounter = 0;
   playTimer = setInterval(() => {
@@ -170,24 +179,31 @@ function startPlayback() {
 
     elStamp.textContent = `Playing… ${idx+1}/${N}`;
     idx += 1;
-    if (idx >= N) stopPlayback();
+    if (idx >= N) {
+      pausePlayback();           // 停下定时器
+      status = 'finished';       // 标记已完成
+      setButtons();
+      elStamp.textContent = 'Finished. Click Start to replay.';
+    }
   }, tick);
 
-  elStart.disabled = true;
-  elStop.disabled  = false;
+  status = 'playing';
+  setButtons();
 }
 
-function stopPlayback() {
+function pausePlayback() {
   if (playTimer) clearInterval(playTimer);
   playTimer = null;
-  elStart.disabled = false;
-  elStop.disabled  = true;
-  elStamp.textContent = 'Stopped.';
+  if (status === 'playing') {
+    status = 'paused';
+    setButtons();
+    elStamp.textContent = `Paused at ${Math.min(idx, N)}/${N}`;
+  }
 }
 
 elReload.addEventListener('click', loadData);
 elStart .addEventListener('click', startPlayback);
-elStop  .addEventListener('click', stopPlayback);
+elPause .addEventListener('click', pausePlayback);
 window.addEventListener('resize', () => { rainChart.resize(); sinrChart.resize(); dutyChart.resize(); mosChart.resize(); });
 
 // 初始化
