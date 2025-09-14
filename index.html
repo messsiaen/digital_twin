@@ -27,11 +27,13 @@
   </main>
 
   <script>
-    /* Read ONE json from main branch (raw). Change to your owner/repo if needed. */
-    window.METRICS_URL = 'https://raw.githubusercontent.com/messsiaen/digital_twin/main/data/metrics.json';
-    /* Playback speed: 1 point per (inferred) step; set >1 to speed up, e.g. 2 = 2x */
-    window.PLAY_SPEED  = 1;
+    /* Read ONE json from main branch (raw). Change owner/repo if needed. */
+    window.METRICS_URL  = 'https://raw.githubusercontent.com/messsiaen/digital_twin/main/data/metrics.json';
+    /* Playback: 0.5s per point */
+    window.PLAY_TICK_MS = 500;
+    /* X-axis mode: 'slot' (1..N) or 'time' (use timestamps from JSON). We use 'slot' as requested. */
+    window.X_AXIS_MODE  = 'slot';
   </script>
-  <script src="./app.js?v=10"></script>
+  <script src="./app.js?v=11"></script>
 </body>
 </html>
