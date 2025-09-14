@@ -6,10 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Simulation Dashboard</title>
 
-  <!-- 外链样式(可选)，404也无妨 -->
   <link rel="stylesheet" href="./styles.css" />
-
-  <!-- 兜底样式：保证图表可见 -->
   <style>
     :root { --bg:#0b1020; --fg:#e9eef7; --muted:#9fb3c8; --card:#111730; --line:#1a2242; }
     * { box-sizing: border-box; }
@@ -23,7 +20,7 @@
     .grid { padding:12px; display:grid; grid-template-columns:1fr 1fr; grid-template-rows:1fr 1fr; gap:12px; }
     .chart { height:360px; background:var(--card); border:1px solid var(--line); border-radius:14px; }
     .footer { border-top:1px solid var(--line); padding:8px 16px; }
-    #ticker { font: 12px ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; color: var(--muted); line-height: 1.5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    #ticker { font:12px ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace; color:var(--muted); line-height:1.5; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   </style>
 
   <script src="https://cdn.jsdelivr.net/npm/echarts/dist/echarts.min.js"></script>
@@ -33,8 +30,8 @@
     <h1>Simulation Metrics</h1>
     <div class="controls">
       <button id="btnReload" title="Reload data file">Reload</button>
-      <button id="btnStart"  title="Start playback">Start Simulation</button>
-      <button id="btnStop"   title="Stop playback" disabled>End Simulation</button>
+      <button id="btnStart"  title="Start or resume">Start Simulation</button>
+      <button id="btnPause"  title="Pause playback" disabled>Pause Simulation</button>
       <span id="stamp">Waiting for data…</span>
     </div>
   </header>
@@ -46,19 +43,13 @@
     <div id="mosChart"  class="chart"></div>
   </main>
 
-  <div class="footer">
-    <!-- 最近5个点：时间戳 + 四个数值 -->
-    <div id="ticker">No data yet.</div>
-  </div>
+  <div class="footer"><div id="ticker">No data yet.</div></div>
 
   <script>
-    /* 读取 main 分支的唯一 JSON（把 owner/repo 改成你的） */
     window.METRICS_URL  = 'https://raw.githubusercontent.com/messsiaen/digital_twin/main/data/metrics.json';
-    /* 每 0.5s 追加一个点 */
-    window.PLAY_TICK_MS = 500;
-    /* X 轴：'slot' 用 1..N；想用时间戳就设为 'time' */
-    window.X_AXIS_MODE  = 'slot';
+    window.PLAY_TICK_MS = 500;     // 0.5s / point
+    window.X_AXIS_MODE  = 'time';  // 横轴用原始时间戳
   </script>
-  <script src="./app.js?v=23"></script>
+  <script src="./app.js?v=25"></script>
 </body>
 </html>
