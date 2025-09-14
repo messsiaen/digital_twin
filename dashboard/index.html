@@ -4,14 +4,19 @@
   <meta charset="utf-8" />
   <meta http-equiv="Cache-Control" content="no-store" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Live Simulation Dashboard</title>
+  <title>Simulation Dashboard</title>
   <link rel="stylesheet" href="./styles.css" />
   <script src="https://cdn.jsdelivr.net/npm/echarts/dist/echarts.min.js"></script>
 </head>
 <body>
   <header class="header">
-    <h1>Live Simulation Metrics</h1>
-    <div id="stamp">Waiting for data…</div>
+    <h1>Simulation Metrics</h1>
+    <div class="controls">
+      <button id="btnReload" title="Reload data file">Reload</button>
+      <button id="btnStart"  title="Start playback">Start Simulation</button>
+      <button id="btnStop"   title="Stop playback" disabled>End Simulation</button>
+      <span id="stamp">Waiting for data…</span>
+    </div>
   </header>
 
   <main class="grid">
@@ -22,10 +27,11 @@
   </main>
 
   <script>
-    /* ★ 指向 main 分支上的唯一 JSON（改成你的 owner/repo 即可） */
+    /* Read ONE json from main branch (raw). Change to your owner/repo if needed. */
     window.METRICS_URL = 'https://raw.githubusercontent.com/messsiaen/digital_twin/main/data/metrics.json';
-    window.REFRESH_MS  = 5000; // every 5s
+    /* Playback speed: 1 point per (inferred) step; set >1 to speed up, e.g. 2 = 2x */
+    window.PLAY_SPEED  = 1;
   </script>
-  <script src="./app.js?v=1"></script>
+  <script src="./app.js?v=10"></script>
 </body>
 </html>
