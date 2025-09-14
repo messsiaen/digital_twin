@@ -11,7 +11,15 @@
 <body>
   <header class="header">
     <h1>Live Simulation Metrics</h1>
-    <div id="stamp">Waiting for data…</div>
+    <div class="controls">
+      <select id="runSelect" title="Available runs">
+        <option value="">Select a run…</option>
+      </select>
+      <button id="btnReload">Reload Runs</button>
+      <button id="btnStart">Start Simulation</button>
+      <button id="btnStop" disabled>End Simulation</button>
+      <span id="stamp">Waiting…</span>
+    </div>
   </header>
 
   <main class="grid">
@@ -22,11 +30,11 @@
   </main>
 
   <script>
-    /* Data source: raw file on the gh-pages branch */
-    window.METRICS_URL = 'https://raw.githubusercontent.com/messsiaen/digital_twin/metrics/data/metrics.json';
-    window.REFRESH_MS  = 5000; // refresh every 5s
+    /* Point the dashboard to the metrics branch (raw). Change the owner/repo to yours. */
+    window.RUNS_INDEX_URL = 'https://raw.githubusercontent.com/messsiaen/digital_twin/metrics/runs/index.json';
+    window.RUNS_BASE_URL  = 'https://raw.githubusercontent.com/messsiaen/digital_twin/metrics/runs/';
+    window.PLAY_SPEED     = 1;    // 1x playback speed (1 sample per step_ms)
   </script>
-  <!-- add a cache-busting query so browsers pick up the latest JS -->
-  <script src="./app.js?v=4"></script>
+  <script src="./app.js?v=1"></script>
 </body>
 </html>
