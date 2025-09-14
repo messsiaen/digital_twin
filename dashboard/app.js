@@ -12,28 +12,32 @@ let rawData = null, S = null, N = 0;
 let playTimer = null, idx = 0;
 let buf = { rain:[], sinr:[], duty:[], mos:[] };
 
+const COLORS = ['#8AB4FF', '#7FDBCA', '#F6D06F', '#EE7A7A']; // 高对比
+
 function baseOption(title, xType, yFmt='{value}') {
   return {
-    title: { text: title, left:12, top:8, textStyle:{ color:'#e9eef7', fontSize:14 } },
+    color: [COLORS[0]], // 每个图只有一条线，各自颜色在 init 时改
+    title: { text: title, left: 12, top: 8, textStyle:{ color:'#e9eef7', fontSize:14 } },
     grid:  { left:48, right:16, top:48, bottom:36 },
-    xAxis: { type:xType, axisLabel:{ color:'#9fb3c8' }, axisLine:{ lineStyle:{ color:'#9fb3c8' } } },
-    yAxis: { type:'value', axisLabel:{ color:'#9fb3c8', formatter:yFmt }, splitLine:{ lineStyle:{ color:'#1a2242' } } },
+    xAxis: { type:xType, axisLabel:{ color:'#9fb3c8' }, axisLine:{ lineStyle:{ color:'#9fb3c8' } }, splitLine:{ lineStyle:{ color:'#1a2242' } }, scale: true },
+    yAxis: { type:'value', axisLabel:{ color:'#9fb3c8', formatter:yFmt }, splitLine:{ lineStyle:{ color:'#1a2242' } }, scale: true },
     tooltip: { trigger:'axis' },
+    animation: false,
     series: [{ type:'line', showSymbol:false, smooth:true, data: [] }]
   };
 }
 
 function initCharts() {
   const xType = (window.X_AXIS_MODE === 'time') ? 'time' : 'value';
-  rainChart.setOption(baseOption('Rain (mm/h)', xType));
-  sinrChart.setOption(baseOption('SINR (dB)',   xType));
-  dutyChart.setOption(baseOption('Duty Cycle',  xType, '{value}'));
-  mosChart .setOption(baseOption('MOS',         xType, '{value}'));
-  // 调试：若容器高度为 0，则会看不到图
-  console.log('sizes', {
-    rain: rainChart.getWidth()+'x'+rainChart.getHeight(),
-    sinr: sinrChart.getWidth()+'x'+sinrChart.getHeight()
-  });
+  // 四个图分别指定颜色，避免主题差异
+  const optsR = baseOption('Rain (mm/h)', xType);  optsR.color = [COLORS[0]];
+  const optsS = baseOption('SINR (dB)',   xType);  optsS.color = [COLORS[1]];
+  const optsD = baseOption('Duty Cycle',  xType);  optsD.color = [COLORS[2]];
+  const optsM = baseOption('MOS',         xType);  optsM.color = [COLORS[3]];
+  rainChart.setOption(optsR, true);
+  sinrChart.setOption(optsS, true);
+  dutyChart.setOption(optsD, true);
+  mosChart .setOption(optsM, true);
 }
 
 async function fetchJSON(url) {
@@ -75,13 +79,26 @@ async function loadData() {
   elStamp.textContent = `Loaded: ${N} samples · x-axis=${mode} · algo=${rawData.meta?.algo || ''}`;
   elStart.disabled = (N === 0);
   elStop.disabled  = true;
+
+  // 首次载入后强制一次 resize，避免某些浏览器初始宽高异常
+  setTimeout(() => { rainChart.resize(); sinrChart.resize(); dutyChart.resize(); mosChart.resize(); }, 0);
 }
 
-function paintAll() {
-  rainChart.setOption({ series: [{ data: buf.rain }] });
-  sinrChart.setOption({ series: [{ data: buf.sinr }] });
-  dutyChart.setOption({ series: [{ data: buf.duty }] });
-  mosChart .setOption({ series: [{ data: buf.mos  }] });
+function paintAll(forceResize=false) {
+  const optionR = { series: [{ data: buf.rain }] };
+  const optionS = { series: [{ data: buf.sinr }] };
+  const optionD = { series: [{ data: buf.duty }] };
+  const optionM = { series: [{ data: buf.mos  }] };
+
+  // replaceMerge 确保按我们提供的 series 完整替换，避免内部状态干扰
+  rainChart.setOption(optionR, false, { replaceMerge: ['series'] });
+  sinrChart.setOption(optionS, false, { replaceMerge: ['series'] });
+  dutyChart.setOption(optionD, false, { replaceMerge: ['series'] });
+  mosChart .setOption(optionM, false, { replaceMerge: ['series'] });
+
+  if (forceResize) {
+    rainChart.resize(); sinrChart.resize(); dutyChart.resize(); mosChart.resize();
+  }
 }
 
 function startPlayback() {
@@ -91,17 +108,19 @@ function startPlayback() {
   const tick = Math.max(20, Number(window.PLAY_TICK_MS || 500)); // 0.5s 默认
   idx = 0;
   buf = { rain:[], sinr:[], duty:[], mos:[] };
-  paintAll();
+  paintAll(true);
 
+  let resizeCounter = 0;
   playTimer = setInterval(() => {
     buf.rain.push(S.rain_xy[idx]);
     buf.sinr.push(S.sinr_xy[idx]);
     buf.duty.push(S.duty_xy[idx]);
     buf.mos .push(S.mos_xy[idx]);
 
-    paintAll();
-    elStamp.textContent = `Playing… ${idx+1}/${N}`;
+    // 每次刷新 series；每隔一段时间强制 resize 一次，保证可见性
+    paintAll(++resizeCounter % 8 === 0);
 
+    elStamp.textContent = `Playing… ${idx+1}/${N}`;
     idx += 1;
     if (idx >= N) stopPlayback();
   }, tick);
@@ -121,7 +140,6 @@ function stopPlayback() {
 elReload.addEventListener('click', loadData);
 elStart .addEventListener('click', startPlayback);
 elStop  .addEventListener('click', stopPlayback);
-
 window.addEventListener('resize', () => {
   rainChart.resize(); sinrChart.resize(); dutyChart.resize(); mosChart.resize();
 });
