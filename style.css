@@ -25,3 +25,11 @@ body { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
 .chart { min-height:360px; background:var(--card); border:1px solid var(--line); border-radius:14px; }
 .footer { border-top:1px solid var(--line); padding:8px 16px; }
 #ticker { font:12px ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+
+.header .left { display:flex; align-items:center; gap:10px; }
+.back {
+  display:inline-block; padding:6px 10px; border:1px solid var(--line);
+  border-radius:10px; text-decoration:none; color:var(--muted);
+}
+.back:hover { color:var(--fg); border-color:#24305a; }

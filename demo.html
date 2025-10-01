@@ -5,18 +5,19 @@
   <meta http-equiv="Cache-Control" content="no-store" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Simulation Dashboard</title>
-  <!-- 修正：这里用 style.css（单数） -->
   <link rel="stylesheet" href="./style.css" />
-  <!-- 统一把零散的内联样式删掉，避免“...”破坏 CSS 语法 -->
   <script src="https://cdn.jsdelivr.net/npm/echarts/dist/echarts.min.js"></script>
 </head>
 <body>
   <header class="header">
-    <h1>Simulation Metrics</h1>
+    <div class="left">
+      <a class="back" href="./index.html">← Back to options</a>
+      <h1>Simulation Dashboard</h1>
+    </div>
     <div class="controls">
       <button id="btnReload">Reload</button>
       <button id="btnStart">Start Simulation</button>
-      <button id="btnPause" disabled>Pause Simulation</button>
+      <button id="btnPause" disabled>Pause</button>
       <span id="stamp" class="muted"></span>
     </div>
   </header>
@@ -31,13 +32,6 @@
   </main>
 
   <footer class="footer"><div id="ticker">No data yet.</div></footer>
-
-  <script>
-    // 如果你原本在 html 里设置了这些全局变量，可以保留：
-    window.METRICS_URL  = window.METRICS_URL  || './data/metrics.json';
-    window.PLAY_TICK_MS = window.PLAY_TICK_MS || 500;
-    window.X_AXIS_MODE  = window.X_AXIS_MODE  || 'time';
-  </script>
   <script src="./app.js"></script>
 </body>
 </html>
