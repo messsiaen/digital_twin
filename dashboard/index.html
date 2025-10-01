@@ -4,52 +4,29 @@
   <meta charset="utf-8" />
   <meta http-equiv="Cache-Control" content="no-store" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Simulation Dashboard</title>
-
-  <link rel="stylesheet" href="./styles.css" />
-  <style>
-    :root { --bg:#0b1020; --fg:#e9eef7; --muted:#9fb3c8; --card:#111730; --line:#1a2242; }
-    * { box-sizing: border-box; }
-    body { margin:0; font-family: ui-sans-serif, system-ui, -apple-system,"Segoe UI",Roboto; background:var(--bg); color:var(--fg); }
-    .header { padding:12px 16px; border-bottom:1px solid var(--line); display:flex; align-items:center; justify-content:space-between; gap:12px; }
-    .header h1 { margin:0; font-size:20px; }
-    .controls { display:flex; gap:8px; align-items:center; }
-    .controls button { background:#0f1530; color:var(--fg); border:1px solid var(--line); border-radius:10px; padding:6px 10px; cursor:pointer; }
-    .controls button[disabled]{ opacity:.5; cursor:not-allowed; }
-    #stamp { color:var(--muted); font-size:12px; }
-    .grid { padding:12px; display:grid; grid-template-columns:1fr 1fr; grid-template-rows:1fr 1fr; gap:12px; }
-    .chart { height:360px; background:var(--card); border:1px solid var(--line); border-radius:14px; }
-    .footer { border-top:1px solid var(--line); padding:8px 16px; }
-    #ticker { font:12px ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace; color:var(--muted); line-height:1.5; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  </style>
-
-  <script src="https://cdn.jsdelivr.net/npm/echarts/dist/echarts.min.js"></script>
+  <title>Digital Twin Demo</title>
+  <link rel="stylesheet" href="./style.css" />
 </head>
 <body>
   <header class="header">
-    <h1>Simulation Metrics</h1>
-    <div class="controls">
-      <button id="btnReload" title="Reload data file">Reload</button>
-      <button id="btnStart"  title="Start or resume">Start Simulation</button>
-      <button id="btnPause"  title="Pause playback" disabled>Pause Simulation</button>
-      <span id="stamp">Waiting for data…</span>
-    </div>
+    <h1>Digital Twin Demos</h1>
   </header>
 
-  <main class="grid">
-    <div id="rainChart" class="chart"></div>
-    <div id="sinrChart" class="chart"></div>
-    <div id="dutyChart" class="chart"></div>
-    <div id="mosChart"  class="chart"></div>
+  <main class="container">
+    <div class="grid2">
+      <a class="card" href="./demo.html">
+        <h2>Demo A · Simulation Dashboard</h2>
+        <p>Go to the original dashboard page.</p>
+      </a>
+      <a class="card" href="./curve.html">
+        <h2>Demo B · γ–PESQ Curve (ML)</h2>
+        <p>Input bitrate &amp; WPT power to plot a single curve using the offline ML table.</p>
+      </a>
+    </div>
   </main>
 
-  <div class="footer"><div id="ticker">No data yet.</div></div>
-
-  <script>
-    window.METRICS_URL  = 'https://raw.githubusercontent.com/messsiaen/digital_twin/main/data/metrics.json';
-    window.PLAY_TICK_MS = 500;     // 0.5s / point
-    window.X_AXIS_MODE  = 'time';  // 横轴用原始时间戳
-  </script>
-  <script src="./app.js?v=25"></script>
+  <footer class="footer">
+    <div id="ticker">Ready.</div>
+  </footer>
 </body>
 </html>

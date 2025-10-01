@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="Cache-Control" content="no-store" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>γ–PESQ Curve (ML)</title>
+  <link rel="stylesheet" href="./style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/echarts/dist/echarts.min.js"></script>
+</head>
+<body>
+  <header class="header">
+    <h1>Predicted PESQ vs γ (ML)</h1>
+    <div class="controls">
+      <label>Bitrate (kbps)</label>
+      <input id="q" type="number" step="0.1" value="20" />
+      <label>WPT (dBm)</label>
+      <input id="p" type="number" step="0.1" value="-105" />
+      <button id="btnPlot">Plot</button>
+      <button id="btnCSV" class="ghost">CSV</button>
+      <span id="stamp" class="muted"></span>
+    </div>
+  </header>
+
+  <main class="container">
+    <div id="curveChart" class="chart"></div>
+  </main>
+
+  <footer class="footer"><div id="ticker">Table: ./data/pesq_table_ml.json</div></footer>
+
+<script>
+const COLORS = ['#8AB4FF','#7FDBCA','#F6D06F','#EE7A7A'];
+let TABLE=null;
+
+function clamp(v, a, b){ return Math.max(a, Math.min(b, v)); }
+function bracket(x, arr){
+  if (x<=arr[0]) return [0,0,0];
+  if (x>=arr[arr.length-1]) return [arr.length-1,arr.length-1,0];
+  let hi=1; while(hi<arr.length && arr[hi]<x) hi++;
+  const lo=hi-1; const t=(x-arr[lo])/(arr[hi]-arr[lo]);
+  return [lo,hi,t];
+}
+function bilerp(q00,q10,q01,q11,tx,ty){
+  const a=(1-tx)*q00+tx*q10;
+  const b=(1-tx)*q01+tx*q11;
+  return (1-ty)*a+ty*b;
+}
+async function ensureTable(){
+  if (TABLE) return TABLE;
+  const resp = await fetch('./data/pesq_table_ml.json',{cache:'no-store'});
+  TABLE = await resp.json();
+  return TABLE;
+}
+function buildSeries(gammas, ys){
+  return [{
+    name:'PESQ', type:'line', showSymbol:false, data: gammas.map((g,i)=>[g, ys[i]]) 
+  }];
+}
+function axisStyle(){
+  return {
+    axisLabel:{ color:'#9fb3c8' },
+    axisLine:{ lineStyle:{ color:'#9fb3c8' } },
+    splitLine:{ lineStyle:{ color:'#1a2242' } },
+    scale:true
+  };
+}
+function draw(gammas, ys, meta){
+  const el = document.getElementById('curveChart');
+  const chart = echarts.init(el);
+  chart.setOption({
+    color:[COLORS[0]],
+    grid:{ left:56, right:20, top:24, bottom:48 },
+    xAxis:{ ...axisStyle(), type:'value', name:'γ_dB (pre-WPT channel SNR)' },
+    yAxis:{ ...axisStyle(), type:'value', name:'Predicted PESQ', min:1, max:4.5 },
+    tooltip:{ trigger:'axis' },
+    series: buildSeries(gammas, ys),
+  }, true);
+  document.getElementById('ticker').textContent = meta;
+}
+async function plotNow(){
+  await ensureTable();
+  const G = TABLE.gamma_db;            // [-5..25]
+  const Q = TABLE.bitrates_kbps;       // [8..40]
+  const P = TABLE.wpt_dbm;             // [-140..-90]
+  const T = TABLE.pesq;                // pesq[qi][pi][gi]
+
+  let q = parseFloat(document.getElementById('q').value);
+  let p = parseFloat(document.getElementById('p').value);
+  let warn = [];
+
+  if (q<Q[0] || q>Q[Q.length-1]) warn.push(`Bitrate clamped to [${Q[0]},${Q[Q.length-1]}]`);
+  if (p<P[0] || p>P[P.length-1]) warn.push(`WPT clamped to [${P[0]},${P[P.length-1]}]`);
+  q = clamp(q, Q[0], Q[Q.length-1]);
+  p = clamp(p, P[0], P[P.length-1]);
+
+  const [q0,q1,tq] = bracket(q, Q);
+  const [p0,p1,tp] = bracket(p, P);
+
+  const ys = G.map((_,gi)=>{
+    const q00 = T[q0][p0][gi], q10 = T[q1][p0][gi];
+    const q01 = T[q0][p1][gi], q11 = T[q1][p1][gi];
+    return +bilerp(q00,q10,q01,q11,tq,tp).toFixed(4);
+  });
+
+  document.getElementById('stamp').textContent = warn.join(' | ');
+  draw(G, ys, `q=${q} kbps, WPT=${p} dBm`);
+}
+
+document.getElementById('btnPlot').addEventListener('click', plotNow);
+document.getElementById('btnCSV').addEventListener('click', async ()=>{
+  await ensureTable();
+  const G = TABLE.gamma_db;
+  const y = echarts.getInstanceByDom(document.getElementById('curveChart'))?.getOption()?.series?.[0]?.data?.map(d=>d[1]) || [];
+  if (!y.length) return;
+  let csv = "gamma_db,pesq\n" + G.map((g,i)=>`${g},${y[i]}`).join("\n");
+  const blob = new Blob([csv], {type:"text/csv;charset=utf-8;"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = "curve.csv"; a.click();
+  URL.revokeObjectURL(url);
+});
+
+window.addEventListener('load', plotNow);
+</script>
+</body>
+</html>
