@@ -1,211 +1,114 @@
+// ===== DOM =====
 const elReload = document.getElementById('btnReload');
 const elStart  = document.getElementById('btnStart');
 const elPause  = document.getElementById('btnPause');
 const elStamp  = document.getElementById('stamp');
 const elTicker = document.getElementById('ticker');
 
+// ===== ECharts init =====
 const rainChart = echarts.init(document.getElementById('rainChart'));
 const sinrChart = echarts.init(document.getElementById('sinrChart'));
-const dutyChart = echarts.init(document.getElementById('dutyChart'));
+const pesqChart = echarts.init(document.getElementById('pesqChart')); // <-- duty 改为 pesq
 const mosChart  = echarts.init(document.getElementById('mosChart'));
 
-let rawData = null, S = null, N = 0;
-let playTimer = null, idx = 0;
-let buf = { rain:[], sinr:[], duty:[], mos:[] };
-
-// 时间信息（用于底部 ticker）
-let baseTs = null;
-let stepMsTicker = 15000;
-
-// 状态：'idle' | 'playing' | 'paused' | 'finished'
-let status = 'idle';
-
-const COLORS = ['#8AB4FF', '#7FDBCA', '#F6D06F', '#EE7A7A'];
-
-function baseOption(title, xType, yFmt='{value}') {
+function axisStyle() {
   return {
-    color: [COLORS[0]],
-    title: { text: title, left: 12, top: 8, textStyle:{ color:'#e9eef7', fontSize:14 } },
-    grid:  { left:48, right:16, top:48, bottom:36 },
-    xAxis: { 
-      type:xType,
-      axisLabel:{ color:'#9fb3c8' },
-      axisLine:{ lineStyle:{ color:'#9fb3c8' } },
-      splitLine:{ show:false },    // 关闭纵向参考线
-      scale: true
-    },
-    yAxis: { 
-      type:'value',
-      axisLabel:{ color:'#9fb3c8', formatter:yFmt },
-      splitLine:{ lineStyle:{ color:'#1a2242' } },
-      scale: true
-    },
-    tooltip: { trigger:'axis' },
+    axisLabel: { color: '#9fb3c8' },
+    axisLine: { lineStyle: { color: '#9fb3c8' } },
+    splitLine: { lineStyle: { color: '#1a2242' } },
+    scale: true
+  };
+}
+function baseOption(title, yName) {
+  return {
+    title: { text: title, left: 'center', textStyle: { color: '#cfe3ff', fontSize: 14 } },
+    grid: { left: 56, right: 20, top: 36, bottom: 40 },
     animation: false,
-    series: [{ type:'line', showSymbol:false, smooth:true, data: [] }]
+    tooltip: { trigger: 'axis', axisPointer: { type: 'cross' } },
+    xAxis: { ...axisStyle(), type: 'time', name: 'time' },
+    yAxis: { ...axisStyle(), type: 'value', name: yName },
+    series: [{ type: 'line', smooth: true, showSymbol: false, data: [] }]
   };
 }
 
-function initCharts() {
-  const xType = (window.X_AXIS_MODE === 'time') ? 'time' : 'value';
-  const optsR = baseOption('Rain (mm/h)', xType);  optsR.color = [COLORS[0]];
-  const optsS = baseOption('SINR (dB)',   xType);  optsS.color = [COLORS[1]];
-  const optsD = baseOption('Duty Cycle',  xType);  optsD.color = [COLORS[2]];
-  const optsM = baseOption('MOS',         xType);  optsM.color = [COLORS[3]];
-  rainChart.setOption(optsR, true);
-  sinrChart.setOption(optsS, true);
-  dutyChart.setOption(optsD, true);
-  mosChart .setOption(optsM, true);
-}
+rainChart.setOption(baseOption('Rain (mm/h)', 'mm/h'));
+sinrChart.setOption(baseOption('SINR (dB)', 'dB'));
+pesqChart.setOption(baseOption('PESQ (score)', 'PESQ'));   // <-- 新标题
+mosChart.setOption(baseOption('MOS (score)', 'MOS'));
 
-async function fetchJSON(url) {
-  const r = await fetch(url + '?t=' + Date.now(), { cache:'no-store' });
-  if (!r.ok) throw new Error(r.status + ' ' + r.statusText);
-  return await r.json();
-}
+// ===== Data & playback =====
+let raw = null;          // { ts, meta, series }
+let idx = 0;
+let timer = null;
 
-function toXY(series, mode) {
-  if (!Array.isArray(series)) return [];
-  if (mode === 'time') return series.map(p => [Number(p[0]), Number(p[1])]);
-  return series.map((p,i) => [i+1, Number(p[1])]);
-}
-
-function fmtTs(ms) {
-  const d = new Date(ms);
-  const pad = (n)=> String(n).padStart(2,'0');
-  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-}
-const f2 = (x)=> (isFinite(x) ? Number(x).toFixed(3) : 'NaN');
-
-function setButtons(){
-  if (status === 'playing') { elStart.disabled = true;  elPause.disabled = false; }
-  else                     { elStart.disabled = false; elPause.disabled = true;  }
-}
-
-async function loadData() {
-  const url = window.METRICS_URL || './data/metrics.json';
-  rawData = await fetchJSON(url);
-  const series = rawData.series || {};
-  const mode   = (window.X_AXIS_MODE === 'time') ? 'time' : 'slot';
-
-  const rain = Array.isArray(series.rain) ? series.rain : [];
-  const sinr = Array.isArray(series.sinr) ? series.sinr : [];
-  const duty = Array.isArray(series.duty) ? series.duty : [];
-  const mos  = Array.isArray(series.mos ) ? series.mos  : [];
-
-  N = Math.min(rain.length, sinr.length, duty.length, mos.length);
-
-  // 时间步长用于底部 ticker
-  baseTs = Number(rain?.[0]?.[0] ?? Date.now());
-  if (rawData.meta && Number(rawData.meta.slot_seconds)) {
-    stepMsTicker = Number(rawData.meta.slot_seconds) * 1000;
-  } else if (rain.length >= 2) {
-    const diff = Number(rain[1][0]) - Number(rain[0][0]);
-    stepMsTicker = (isFinite(diff) && diff > 0) ? diff : 15000;
-  } else stepMsTicker = 15000;
-
-  S = {
-    rain_xy: toXY(rain, mode),
-    sinr_xy: toXY(sinr, mode),
-    duty_xy: toXY(duty, mode),
-    mos_xy:  toXY(mos,  mode)
-  };
-
+async function loadMetrics() {
+  const res = await fetch('./data/metrics.json', { cache: 'no-store' });
+  raw = await res.json();
   idx = 0;
-  buf = { rain:[], sinr:[], duty:[], mos:[] };
-  status = 'idle';
-  initCharts();
-  setButtons();
-
-  elStamp.textContent = `Loaded: ${N} samples · step=${stepMsTicker/1000}s · x-axis=${mode} · algo=${rawData.meta?.algo || ''}`;
-  // 初次载入后强制 resize
-  setTimeout(() => { rainChart.resize(); sinrChart.resize(); dutyChart.resize(); mosChart.resize(); }, 0);
-  updateTicker(-1);
+  elStamp.textContent = `algo=${raw?.meta?.algo || '-'} · slot=${raw?.meta?.slot_seconds || '-'}s · n=${raw?.meta?.n || '-'}`;
+  elTicker.textContent = 'Loaded metrics.json';
+  // 预热一次渲染（空数据）
+  render(0);
 }
 
-function paintAll(forceResize=false) {
-  rainChart.setOption({ series: [{ data: buf.rain }] }, false, { replaceMerge: ['series'] });
-  sinrChart.setOption({ series: [{ data: buf.sinr }] }, false, { replaceMerge: ['series'] });
-  dutyChart.setOption({ series: [{ data: buf.duty }] }, false, { replaceMerge: ['series'] });
-  mosChart .setOption({ series: [{ data: buf.mos  }] }, false, { replaceMerge: ['series'] });
-  if (forceResize) { rainChart.resize(); sinrChart.resize(); dutyChart.resize(); mosChart.resize(); }
+function sliceUpTo(arr, k) {
+  // arr: [[ts_ms, val], ...]
+  return arr.slice(0, Math.max(0, k)).map(([t, v]) => [t, v]);
 }
 
-function updateTicker(curIndex) {
-  const series = rawData?.series || {};
-  const rain = Array.isArray(series.rain) ? series.rain : [];
-  const sinr = Array.isArray(series.sinr) ? series.sinr : [];
-  const duty = Array.isArray(series.duty) ? series.duty : [];
-  const mos  = Array.isArray(series.mos ) ? series.mos  : [];
-  if (!rain.length) { elTicker.textContent = 'No data.'; return; }
+function render(k) {
+  if (!raw?.series) return;
+  const S = raw.series;
 
-  const last5 = [];
-  for (let k = 0; k < 5; k++) {
-    const i = curIndex - k;
-    if (i < 0) break;
-    const t  = Number(rain[i]?.[0]);  // 原始时间戳
-    const rv = rain[i]?.[1];
-    const sv = sinr[i]?.[1];
-    const dv = duty[i]?.[1];
-    const mv = mos [i]?.[1];
-    last5.push(`${fmtTs(t)} | rain=${f2(rv)}, sinr=${f2(sv)} dB, duty=${f2(dv)}, mos=${f2(mv)}`);
-  }
-  elTicker.textContent = last5.length ? last5.reverse().join('   •   ') : 'Waiting for playback…';
-}
+  // 关键：使用 pesq 替换 duty
+  const rain = S.rain || [];
+  const sinr = S.sinr || [];
+  const pesq = S.pesq || [];   // <-- 从 metrics.json 读取 pesq（已确认存在）
+  const mos  = S.mos  || [];
 
-function startPlayback() {
-  if (!rawData || N === 0) { elStamp.textContent = 'No data to play.'; return; }
+  rainChart.setOption({ series: [{ data: sliceUpTo(rain, k) }] });
+  sinrChart.setOption({ series: [{ data: sliceUpTo(sinr, k) }] });
+  pesqChart.setOption({ series: [{ data: sliceUpTo(pesq, k) }] }); // <-- 第三幅图展示 pesq
+  mosChart.setOption({  series: [{ data: sliceUpTo(mos,  k) }] });
 
-  // 若处于 finished，则从头重播；若处于 paused，则从当前 idx 继续；若 idle，则从头开始
-  if (status === 'finished' || (status === 'idle' && idx === 0 && buf.rain.length === 0)) {
-    idx = 0;
-    buf = { rain:[], sinr:[], duty:[], mos:[] };
-    paintAll(true);
-    updateTicker(-1);
-  }
-
-  if (playTimer) clearInterval(playTimer);
-  const tick = Math.max(20, Number(window.PLAY_TICK_MS || 500));
-
-  let resizeCounter = 0;
-  playTimer = setInterval(() => {
-    buf.rain.push(S.rain_xy[idx]);
-    buf.sinr.push(S.sinr_xy[idx]);
-    buf.duty.push(S.duty_xy[idx]);
-    buf.mos .push(S.mos_xy[idx]);
-
-    paintAll(++resizeCounter % 8 === 0);
-    updateTicker(idx);
-
-    elStamp.textContent = `Playing… ${idx+1}/${N}`;
-    idx += 1;
-    if (idx >= N) {
-      pausePlayback();           // 停下定时器
-      status = 'finished';       // 标记已完成
-      setButtons();
-      elStamp.textContent = 'Finished. Click Start to replay.';
-    }
-  }, tick);
-
-  status = 'playing';
-  setButtons();
-}
-
-function pausePlayback() {
-  if (playTimer) clearInterval(playTimer);
-  playTimer = null;
-  if (status === 'playing') {
-    status = 'paused';
-    setButtons();
-    elStamp.textContent = `Paused at ${Math.min(idx, N)}/${N}`;
+  // 显示当前时间戳
+  if (k > 0) {
+    const t = rain[k-1]?.[0] ?? sinr[k-1]?.[0] ?? pesq[k-1]?.[0] ?? mos[k-1]?.[0];
+    if (t) elTicker.textContent = (new Date(t)).toISOString();
   }
 }
 
-elReload.addEventListener('click', loadData);
-elStart .addEventListener('click', startPlayback);
-elPause .addEventListener('click', pausePlayback);
-window.addEventListener('resize', () => { rainChart.resize(); sinrChart.resize(); dutyChart.resize(); mosChart.resize(); });
+function start() {
+  if (!raw?.series) return;
+  if (timer) return;
+  elStart.disabled = true;
+  elPause.disabled = false;
 
-// 初始化
-initCharts();
-loadData();
+  const n = raw.meta?.n || Math.max(
+    raw.series.rain?.length || 0,
+    raw.series.sinr?.length || 0,
+    raw.series.pesq?.length || 0,
+    raw.series.mos?.length  || 0
+  );
+  const stepMs = 50; // 播放速度（可调）
+  timer = setInterval(() => {
+    idx = Math.min(idx + 1, n);
+    render(idx);
+    if (idx >= n) pause();
+  }, stepMs);
+}
+
+function pause() {
+  if (timer) { clearInterval(timer); timer = null; }
+  elStart.disabled = false;
+  elPause.disabled = true;
+}
+
+elReload.addEventListener('click', loadMetrics);
+elStart .addEventListener('click', start);
+elPause .addEventListener('click', pause);
+
+window.addEventListener('load', loadMetrics);
+window.addEventListener('resize', () => {
+  rainChart.resize(); sinrChart.resize(); pesqChart.resize(); mosChart.resize();
+});
