@@ -4,31 +4,36 @@
   <meta charset="utf-8" />
   <meta http-equiv="Cache-Control" content="no-store" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Digital Twin Demo</title>
+  <title>Digital Twin - Real-time Monitoring</title>
   <link rel="stylesheet" href="./style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
 </head>
 <body>
   <header class="header">
     <div class="left">
-      <h1>Digital Twin Demos</h1>
+      <h1>Digital Twin - Real-time Monitoring</h1>
+      <span class="muted" id="stamp">Loading...</span>
+    </div>
+    <div class="controls">
+      <button id="btnReload">Reload</button>
+      <button id="btnStart">Start</button>
+      <button id="btnPause" disabled>Pause</button>
     </div>
   </header>
 
   <main class="container">
-    <div class="grid2">
-      <a class="card" href="./demo.html">
-        <h2>Demo A · Simulation Dashboard</h2>
-        <p>Time series simulation</p>
-      </a>
-      <a class="card" href="./curve.html">
-        <h2>Demo B · γ–PESQ Curve (ML)</h2>
-        <p>Input bitrate &amp; WPT to draw a single γ–PESQ curve.</p>
-      </a>
+    <div class="grid">
+      <div id="rainChart" class="chart"></div>
+      <div id="energyChart" class="chart"></div>
+      <div id="socChart" class="chart"></div>
+      <div id="wptChart" class="chart"></div>
     </div>
   </main>
 
   <footer class="footer">
     <div id="ticker">Ready.</div>
   </footer>
+
+  <script src="./app.js"></script>
 </body>
 </html>
