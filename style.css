@@ -13,8 +13,8 @@ body { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
 .controls button.ghost { background:transparent; }
 .controls button[disabled]{ opacity:.5; cursor:not-allowed; }
 
-.container { max-width:1200px; margin:0 auto; padding:12px; }
-.grid { display:grid; grid-template-columns:1fr 1fr; grid-template-rows:1fr 1fr; gap:12px; }
+.container { max-width:1400px; margin:0 auto; padding:12px; height:calc(100vh - 120px); }
+.grid { display:grid; grid-template-columns:1fr 1fr; grid-template-rows:1fr 1fr; gap:12px; height:100%; }
 .grid2 { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:16px; }
 
 .card { display:block; background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px; text-decoration:none; color:var(--fg); transition:transform .12s ease, border-color .12s ease; }
@@ -22,7 +22,7 @@ body { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
 .card h2 { margin:0 0 6px; font-size:18px; }
 .card p { margin:0; color:var(--muted); }
 
-.chart { min-height:360px; background:var(--card); border:1px solid var(--line); border-radius:14px; }
+.chart { background:var(--card); border:1px solid var(--line); border-radius:14px; width:100%; height:100%; min-height:300px; }
 .footer { border-top:1px solid var(--line); padding:8px 16px; }
 #ticker { font:12px ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
