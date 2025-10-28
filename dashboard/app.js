@@ -6,10 +6,10 @@ const elStamp  = document.getElementById('stamp');
 const elTicker = document.getElementById('ticker');
 
 // ===== ECharts init =====
-const rainChart = echarts.init(document.getElementById('rainChart'));
-const sinrChart = echarts.init(document.getElementById('sinrChart'));
-const pesqChart = echarts.init(document.getElementById('pesqChart')); // <-- duty 改为 pesq
-const mosChart  = echarts.init(document.getElementById('mosChart'));
+const rainChart   = echarts.init(document.getElementById('rainChart'));
+const energyChart = echarts.init(document.getElementById('energyChart'));
+const socChart    = echarts.init(document.getElementById('socChart'));
+const wptChart    = echarts.init(document.getElementById('wptChart'));
 
 function axisStyle() {
   return {
@@ -31,10 +31,10 @@ function baseOption(title, yName) {
   };
 }
 
-rainChart.setOption(baseOption('Rain (mm/h)', 'mm/h'));
-sinrChart.setOption(baseOption('SINR (dB)', 'dB'));
-pesqChart.setOption(baseOption('PESQ (score)', 'PESQ'));   // <-- 新标题
-mosChart.setOption(baseOption('MOS (score)', 'MOS'));
+rainChart.setOption(baseOption('Rain Attenuation (dB)', 'dB'));
+energyChart.setOption(baseOption('Energy Harvest (mW)', 'mW'));
+socChart.setOption(baseOption('State of Charge (%)', '%'));
+wptChart.setOption(baseOption('WPT Power (mW)', 'mW'));
 
 // ===== Data & playback =====
 let raw = null;          // { ts, meta, series }
@@ -60,20 +60,19 @@ function render(k) {
   if (!raw?.series) return;
   const S = raw.series;
 
-  // 关键：使用 pesq 替换 duty
-  const rain = S.rain || [];
-  const sinr = S.sinr || [];
-  const pesq = S.pesq || [];   // <-- 从 metrics.json 读取 pesq（已确认存在）
-  const mos  = S.mos  || [];
+  const rain   = S.rain_attenuation || [];
+  const energy = S.energy_harvest || [];
+  const soc    = S.soc || [];
+  const wpt    = S.wpt_power || [];
 
   rainChart.setOption({ series: [{ data: sliceUpTo(rain, k) }] });
-  sinrChart.setOption({ series: [{ data: sliceUpTo(sinr, k) }] });
-  pesqChart.setOption({ series: [{ data: sliceUpTo(pesq, k) }] }); // <-- 第三幅图展示 pesq
-  mosChart.setOption({  series: [{ data: sliceUpTo(mos,  k) }] });
+  energyChart.setOption({ series: [{ data: sliceUpTo(energy, k) }] });
+  socChart.setOption({ series: [{ data: sliceUpTo(soc, k) }] });
+  wptChart.setOption({ series: [{ data: sliceUpTo(wpt, k) }] });
 
   // 显示当前时间戳
   if (k > 0) {
-    const t = rain[k-1]?.[0] ?? sinr[k-1]?.[0] ?? pesq[k-1]?.[0] ?? mos[k-1]?.[0];
+    const t = rain[k-1]?.[0] ?? energy[k-1]?.[0] ?? soc[k-1]?.[0] ?? wpt[k-1]?.[0];
     if (t) elTicker.textContent = (new Date(t)).toISOString();
   }
 }
@@ -85,10 +84,10 @@ function start() {
   elPause.disabled = false;
 
   const n = raw.meta?.n || Math.max(
-    raw.series.rain?.length || 0,
-    raw.series.sinr?.length || 0,
-    raw.series.pesq?.length || 0,
-    raw.series.mos?.length  || 0
+    raw.series.rain_attenuation?.length || 0,
+    raw.series.energy_harvest?.length || 0,
+    raw.series.soc?.length || 0,
+    raw.series.wpt_power?.length  || 0
   );
   const stepMs = 50; // 播放速度（可调）
   timer = setInterval(() => {
@@ -110,5 +109,5 @@ elPause .addEventListener('click', pause);
 
 window.addEventListener('load', loadMetrics);
 window.addEventListener('resize', () => {
-  rainChart.resize(); sinrChart.resize(); pesqChart.resize(); mosChart.resize();
+  rainChart.resize(); energyChart.resize(); socChart.resize(); wptChart.resize();
 });
